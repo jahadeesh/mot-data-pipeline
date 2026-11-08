@@ -1,0 +1,8 @@
+rfr_id|test_class_id|test_item_id|minor_item|rfr_deficiency_category|rfr_desc|rfr_loc_marker|rfr_insp_manual_desc|rfr_advisory_text|test_item_set_section_id
+100|2|3|N|Major|brake pad worn|Y|brake pad less than 1.5 mm thick|brake pad wearing thin|1
+100|4|3|N|Major|brake pad worn|Y|brake pad less than 1.5 mm thick|brake pad wearing thin|1
+100|7|3|N|Major|brake pad worn|Y|brake pad less than 1.5 mm thick|brake pad wearing thin|1
+101|4|3|N|Dangerous|brake hose leaking|Y|a "leaking" brake hose|brake hose deteriorated|1
+200|4|5|Y|Pre-EU Directive|tyre worn close to limit|Y|tread depth close to legal limit|tyre worn close to legal limit|4
+201|4|5|Y|Minor|tyre slightly damaged|Y|tyre damaged but not affecting safety||4
+300|7|3|N|Major|brake disc excessively worn|Y|brake disc significantly weakened|brake disc worn|1

@@ -1,0 +1,12 @@
+test_item_id|test_class_id|parent_id|test_item_set_section_id|item_name
+0|2|0|0|Vehicle
+0|4|0|0|Vehicle
+0|7|0|0|Vehicle
+1|2|0|1|Brakes
+1|4|0|1|Brakes
+1|7|0|1|Brakes
+3|2|1|1|Brake pads
+3|4|1|1|Brake pads
+3|7|1|1|Brake pads
+4|4|0|4|Tyres
+5|4|4|4|Tread and condition
