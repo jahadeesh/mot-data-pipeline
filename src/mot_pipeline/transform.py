@@ -37,21 +37,27 @@ def render(name: str, **params: object) -> str:
     return template.substitute({k: str(v) for k, v in params.items()})
 
 
-def run_sql(con: duckdb.DuckDBPyConnection, name: str, **params: object) -> dict:
-    """Run every statement in a SQL file; return the final SELECT's single row as a dict.
+def fetch_last_row(con: duckdb.DuckDBPyConnection, sql: str) -> dict:
+    """Run every statement in `sql`; return the last statement's single row as a dict.
 
     Statements run one at a time, each fully fetched. Passing the whole script to a single
     execute() under-reported CSV rejects with DuckDB 2.0, and an unfetched result blocks the
     connection.
     """
+    columns: list[str] = []
     rows: list[tuple] = []
-    for statement in duckdb.extract_statements(render(name, **params)):
+    for statement in duckdb.extract_statements(sql):
         con.execute(statement)
         columns = [d[0] for d in con.description] if con.description else []
         rows = con.fetchall()
     if len(rows) != 1:
-        raise RuntimeError(f"{name} must end with a SELECT returning one stats row")
+        raise RuntimeError("SQL must end with a SELECT returning exactly one row")
     return dict(zip(columns, rows[0], strict=True))
+
+
+def run_sql(con: duckdb.DuckDBPyConnection, name: str, **params: object) -> dict:
+    """Render sql/<name> and run it; the file must end with a one-row stats SELECT."""
+    return fetch_last_row(con, render(name, **params))
 
 
 def _clear_partition(table_dir: Path, year: int) -> None:

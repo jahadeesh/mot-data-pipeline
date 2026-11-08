@@ -31,6 +31,16 @@ LOOKUP_TABLES: dict[str, str] = {
     "mdr_test_type.csv": "test_types",
 }
 
+# Primary key columns of each lookup table (checked for nulls and duplicates).
+LOOKUP_KEYS: dict[str, tuple[str, ...]] = {
+    "item_detail": ("rfr_id", "test_class_id"),
+    "item_group": ("test_item_id", "test_class_id"),
+    "rfr_locations": ("location_id",),
+    "fuel_types": ("fuel_type_code",),
+    "test_outcomes": ("test_result_code",),
+    "test_types": ("test_type_code",),
+}
+
 # Validation thresholds (fractions, 0..1).
 MIN_ITEM_TEST_JOIN_RATE = 0.99  # FAIL below: failure items whose test_id is in tests
 MIN_FAILED_TESTS_WITH_ITEM = 0.95  # WARN below: 'F' tests that have >= 1 'F' item
