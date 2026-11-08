@@ -27,20 +27,36 @@ def csv_members(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
     return sorted(members, key=lambda i: PurePosixPath(i.filename).name)
 
 
-def month_of(info: zipfile.ZipInfo) -> int | None:
-    match = MONTHLY_RE.search(info.filename)
+def month_of(name: str) -> int | None:
+    match = MONTHLY_RE.search(name)
     return int(match.group(2)) if match else None
 
 
-def select_members(members: list[zipfile.ZipInfo], sample: int | None) -> list[zipfile.ZipInfo]:
-    """Sample mode keeps only the earliest month, so dev runs read ~1/12 of the data."""
+def select_names(names: list[str], sample: int | None) -> list[str]:
+    """Sample mode keeps only the earliest month, so dev runs read ~1/12 of the data.
+
+    Used both on ZIP member names (extract) and on extracted file names (transform), because
+    the extracted folder may still hold every month from an earlier full run.
+    """
+    names = sorted(names, key=lambda n: PurePosixPath(n).name)
     if not sample:
-        return members
-    monthly = [m for m in members if month_of(m) is not None]
+        return names
+    monthly = [n for n in names if month_of(n) is not None]
     if not monthly:
-        return members[:1]
-    first = min(month_of(m) for m in monthly)
-    return [m for m in monthly if month_of(m) == first]
+        return names[:1]
+    first = min(month_of(n) for n in monthly)
+    return [n for n in monthly if month_of(n) == first]
+
+
+def select_members(members: list[zipfile.ZipInfo], sample: int | None) -> list[zipfile.ZipInfo]:
+    by_name = {m.filename: m for m in members}
+    return [by_name[n] for n in select_names(list(by_name), sample)]
+
+
+def extracted_csvs(out_dir: Path, sample: int | None) -> list[Path]:
+    """The extracted CSVs a transform should read, honouring sample mode."""
+    names = [p.as_posix() for p in out_dir.glob("*.csv")]
+    return [Path(n) for n in select_names(names, sample)]
 
 
 def extract_zip(zip_path: Path, out_dir: Path, *, sample: int | None = None) -> list[Path]:
