@@ -98,4 +98,4 @@ def test_saved_report_is_json(layout: Layout, tmp_path: Path):
     save_report(report, out)
     body = json.loads(out.read_text())
     assert body["passed"] is True
-    assert body["metrics"]["tables"]["tests_rows"] == 12
+    assert body["metrics"]["tables"]["tests_rows"] == 13

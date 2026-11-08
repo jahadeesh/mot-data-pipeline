@@ -5,8 +5,11 @@
 -- directory, year = release year, limit_clause = empty, or "ORDER BY ... LIMIT n" in sample mode.
 
 -- 1. Stage the raw CSVs. The 2024 files are comma-delimited with a header and ISO dates
---    (the user guide's pipe/DD-MM-YYYY description is out of date). Unparseable rows go to
+--    (the user guide's pipe/DD-MM-YYYY description is out of date). Quotes inside values are
+--    backslash-escaped ("STREETZONE 50 2T 12\""), not doubled. Unparseable rows go to
 --    rej_tests instead of failing the run; validation fails if there are too many.
+--    The header line is also repeated mid-file (concatenated exports); those land in
+--    rej_tests too and are counted separately below.
 CREATE OR REPLACE TABLE raw_tests AS
 SELECT *
 FROM read_csv(
@@ -14,6 +17,7 @@ FROM read_csv(
     header = true,
     delim = ',',
     quote = '"',
+    escape = '\',
     columns = {
         'test_id': 'BIGINT',
         'vehicle_id': 'BIGINT',
@@ -106,6 +110,9 @@ SELECT
         SELECT test_id FROM distinct_rows GROUP BY test_id HAVING count(*) > 1
     )) AS conflicting_test_ids,
     (SELECT count(*) FROM tests_final) AS rows_out,
-    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_tests) AS rejected_rows,
+    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_tests
+        WHERE csv_line NOT LIKE 'test_id,%') AS rejected_rows,
+    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_tests
+        WHERE csv_line LIKE 'test_id,%') AS repeated_header_rows,
     (SELECT coalesce(list({'value': value, 'rows': rows} ORDER BY rows DESC), [])
         FROM unknown_fuel) AS unknown_fuel_values;

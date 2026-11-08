@@ -184,6 +184,14 @@ def run_validation(layout: Layout, year: int, sample: int | None = None) -> Repo
         "INFO",
         f"{i['rows_in_scope'] - i['rows_out']:,} exact duplicate rows",
     )
+    headers = t.get("repeated_header_rows", 0) + i.get("repeated_header_rows", 0)
+    if headers:
+        report.add(
+            "repeated CSV header lines skipped",
+            "INFO",
+            f"tests={t.get('repeated_header_rows', 0):,}, "
+            f"failure_items={i.get('repeated_header_rows', 0):,}",
+        )
     unknown = t.get("unknown_fuel_values") or []
     if unknown:
         shown = ", ".join(f"{u['value']}={u['rows']:,}" for u in unknown[:5])

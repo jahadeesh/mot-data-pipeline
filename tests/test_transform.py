@@ -42,10 +42,16 @@ def test_full_run_dedupes_and_cleans_tests(layout: Layout):
     stats = run_transform(layout, 2024, log=lambda _: None)
     t = parquet_tests(layout)
 
-    assert stats["tests"]["raw_rows"] == 15
-    assert stats["tests"]["rows_out"] == 12
+    assert stats["tests"]["raw_rows"] == 16
+    assert stats["tests"]["rows_out"] == 13
     assert stats["tests"]["conflicting_test_ids"] == 1
-    assert query(f"SELECT count(*), count(DISTINCT test_id) FROM '{t}'") == [(12, 12)]
+    assert query(f"SELECT count(*), count(DISTINCT test_id) FROM '{t}'") == [(13, 13)]
+
+    # Real-file CSV dialect: backslash-escaped quotes parse, repeated headers aren't "rejects".
+    assert query(f"SELECT model FROM '{t}' WHERE test_id = 2003") == [('STREETZONE 50 2T 12"',)]
+    assert stats["tests"]["rejected_rows"] == 0
+    assert stats["tests"]["repeated_header_rows"] == 1
+    assert stats["failure_items"]["repeated_header_rows"] == 1
 
     # Conflicting duplicate: deterministic pick (colour A-Z when everything else ties).
     assert query(f"SELECT colour FROM '{t}' WHERE test_id = 1005") == [("BLUE",)]
@@ -153,8 +159,8 @@ def test_lookups_handle_embedded_quotes_and_rename_columns(layout: Layout):
 def test_rerun_overwrites_partition_and_writes_stats(layout: Layout):
     run_transform(layout, 2024, log=lambda _: None)
     run_transform(layout, 2024, log=lambda _: None)
-    assert query(f"SELECT count(*) FROM '{parquet_tests(layout)}'") == [(12,)]
-    assert read_json(layout.stats_file(2024, None))["tests"]["rows_out"] == 12
+    assert query(f"SELECT count(*) FROM '{parquet_tests(layout)}'") == [(13,)]
+    assert read_json(layout.stats_file(2024, None))["tests"]["rows_out"] == 13
     assert not layout.work_db(2024, None).exists()
 
 
@@ -166,7 +172,7 @@ def test_bad_rows_are_rejected_not_fatal(layout: Layout):
     )
     stats = run_transform(layout, 2024, log=lambda _: None)
     assert stats["tests"]["rejected_rows"] == 1
-    assert stats["tests"]["rows_out"] == 12
+    assert stats["tests"]["rows_out"] == 13
 
 
 def test_render_fails_on_missing_placeholder():

@@ -6,6 +6,7 @@
 
 -- 1. Stage. Column names differ from the user guide (rfr_type_code,
 --    mot_test_rfr_location_type_id, dangerous_mark) and there is an extra completed_date.
+--    Same CSV dialect as the results files: backslash escapes, repeated header lines.
 CREATE OR REPLACE TABLE raw_items AS
 SELECT *
 FROM read_csv(
@@ -13,6 +14,7 @@ FROM read_csv(
     header = true,
     delim = ',',
     quote = '"',
+    escape = '\',
     columns = {
         'test_id': 'BIGINT',
         'rfr_id': 'INTEGER',
@@ -56,6 +58,9 @@ SELECT
     (SELECT count(*) FROM raw_items) AS raw_rows,
     (SELECT count(*) FROM raw_items ${items_filter}) AS rows_in_scope,
     (SELECT count(*) FROM items_final) AS rows_out,
-    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_items) AS rejected_rows,
+    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_items
+        WHERE csv_line NOT LIKE 'test_id,%') AS rejected_rows,
+    (SELECT count(DISTINCT (scan_id, file_id, line)) FROM rej_items
+        WHERE csv_line LIKE 'test_id,%') AS repeated_header_rows,
     (SELECT count(*) FROM raw_items WHERE dangerous_mark IS NOT NULL AND dangerous_mark <> 'D')
         AS unexpected_dangerous_marks;

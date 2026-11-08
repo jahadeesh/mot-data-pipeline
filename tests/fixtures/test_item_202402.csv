@@ -1,2 +1,3 @@
 test_id,rfr_id,rfr_type_code,mot_test_rfr_location_type_id,dangerous_mark,completed_date
+test_id,rfr_id,rfr_type_code,mot_test_rfr_location_type_id,dangerous_mark,completed_date
 2002,100,F,1,,2024-02-14T17:30:00.000Z

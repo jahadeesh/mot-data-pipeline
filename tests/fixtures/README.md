@@ -17,3 +17,5 @@ Deliberate quirks, each covered by a test:
 | Dangerous mark `D` | `test_item_202401.csv` |
 | Embedded double quotes in a pipe-delimited lookup | `lookup/item_detail.csv` |
 | A second month, which sample mode must ignore | `*_202402.csv` |
+| Header line repeated mid-file (seen in the real 2024 files) | `*_202402.csv` |
+| Backslash-escaped quote inside a value (`"STREETZONE 50 2T 12\""`) | `test_result_202402.csv` |
