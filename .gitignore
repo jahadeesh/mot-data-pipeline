@@ -1,0 +1,21 @@
+# Data never goes in git: raw downloads are GBs and the outputs are reproducible.
+data/
+*.duckdb
+*.duckdb.wal
+*.part
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
