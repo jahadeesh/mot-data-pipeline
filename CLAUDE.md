@@ -15,15 +15,24 @@ Conventions for working on `mot-data-pipeline`. This repo is the first of five; 
 src/mot_pipeline/  config.py (paths, thresholds), sources.py (CKAN URL discovery), download.py,
                    extract.py, transform.py, validate.py, cli.py
 sql/               lookups/*.sql, tests.sql, failure_items.sql, validate/*.sql
+docs/              DECISIONS.md (and, from Phase 3, data_dictionary.yaml)
+manifest/          downloads.json: committed record of every source file
 tests/             pytest; fixtures/ holds small SYNTHETIC CSVs only
 data/              git-ignored; override with MOT_DATA_DIR or --data-dir
 ```
 
+## How we work (from the project brief)
+
+- The project is built in 7 phases: (1) scaffold and a 2024 sample run, (2) all post-2018 years at full size, (3) labels, normalisation and `docs/data_dictionary.yaml`, (4) a data-quality suite, (5) publishing to Hugging Face, (6) a monthly automated refresh, (7) docs and polish.
+- At the start of each phase, propose a short plan and wait for approval. At the end, stop and summarise what was built, what to review and the decisions needed.
+- **Record every non-obvious decision in `docs/DECISIONS.md`:** what was decided, the alternatives and why. Use the next D-number, never renumber, and supersede an entry rather than rewriting it. Keep README "Design decisions" as a short summary that links there.
+
 ## Rules
 
 - **Never hard-code download URLs.** Resolve them from the dataset's CKAN metadata by resource name (`sources.py`).
-- **Only the post-May-2018 format** is supported (year >= 2019).
-- **Downloads must stay resumable and idempotent.** Skip up-to-date files and keep `raw/manifest.json` (url, size, sha256, etag) current.
+- **Only post-May-2018 data** is in scope (year >= 2018). How the mixed 2018 file is handled is open (D-002).
+- **Downloads must stay resumable and idempotent.** Skip up-to-date files and keep the **committed** `manifest/downloads.json` (file_name, url, size, sha256, etag, downloaded_at) current. Tests must never write to it; an autouse fixture points `MOT_MANIFEST` at a temp file.
+- **Type hints on all public functions.**
 - **SQL files** use `${placeholders}` filled by `transform.render()`. Pass values as SQL literals built in Python (`sql_literal`, `sql_list`). Never concatenate SQL in the SQL files themselves. Every transform SQL file ends with a one-row stats `SELECT`.
 - **Execute SQL statement by statement** with `run_sql` / `fetch_last_row` (uses `duckdb.extract_statements`). Running a multi-statement script in one `execute()` under-reported CSV rejects with DuckDB 2.0. DuckDB 2.0 relations also have no `fetchone()`; use `fetchall()`.
 - Output is **parquet, zstd**, partitioned by `test_year` (the release year). Re-runs replace only that year's partition.

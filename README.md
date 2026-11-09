@@ -40,7 +40,7 @@ Data goes to `./data` by default (git-ignored). To put it somewhere else, set `M
 
 | Command | What it does |
 |---|---|
-| `mot-pipeline download` | Downloads the ZIPs into `raw/`. Skips files that are up to date, resumes partial downloads, and records size, sha256 and ETag in `raw/manifest.json`. `--verify` re-hashes existing files. |
+| `mot-pipeline download` | Downloads the ZIPs into `raw/`. Skips files that are up to date, resumes partial downloads, and records file name, URL, size, sha256, ETag and date in the committed [`manifest/downloads.json`](manifest/downloads.json). `--verify` re-hashes existing files. |
 | `mot-pipeline extract` | Stream-extracts the CSVs into `extracted/`, skipping macOS junk. Idempotent. |
 | `mot-pipeline transform` | Runs the DuckDB SQL in [`sql/`](sql/) and writes zstd parquet. |
 | `mot-pipeline validate` | Runs the checks, prints the report, writes `reports/validation_<year>.json`, and exits 1 on any FAIL. |
@@ -51,8 +51,9 @@ Every command takes `--year` (default 2024), `--sample N` and `--data-dir`.
 ## Output
 
 ```
+manifest/downloads.json            ← committed: exactly which source files built the data
 data/
-├── raw/            manifest.json, lookups/lookup.zip, 2024/{results,items}.zip
+├── raw/            lookups/lookup.zip, 2024/{results,items}.zip
 ├── extracted/      CSVs (safe to delete after a transform)
 ├── parquet/                       ← full runs
 │   ├── tests/test_year=2024/part_0.parquet ...
@@ -176,19 +177,16 @@ These come from the 2024 files, using January as measured by the sample run.
 
 ## Design decisions
 
-- **URLs are discovered, not hard-coded.** DVSA renames files between releases (`dft_test_result_2023.zip` vs `MOT testing data results (2024).zip`). The resource *names* on the [dataset page](https://www.data.gov.uk/dataset/c63fca52-ae4c-4b75-bab5-8b4735e1a4c9/anonymised-mot-tests-and-results) are stable, so [`sources.py`](src/mot_pipeline/sources.py) matches them via the data.gov.uk CKAN API. Adding a year is just `--year 2025`.
-- **Post-May-2018 format only.** The EU Roadworthiness Directive changed defect categories and the file layout in May 2018. `--year` must be 2019 or later.
-- **Resumable downloads.** A partial file resumes with an HTTP `Range` request plus `If-Range`. The ETag the partial was started under is stored next to it, so bytes from two different versions of a file are never stitched together. Files whose size and ETag match the manifest are skipped without re-hashing.
-- **Extract to disk, then let DuckDB stream.** DuckDB can't read inside ZIPs without a community extension, so members are stream-copied to disk at constant memory. No pandas: the files are several GB.
-- **SQL in files, values in Python.** Each table has a SQL file in [`sql/`](sql/) with `${placeholders}` filled by `string.Template`. Paths are always passed as escaped literals, because DuckDB prepared parameters can't be used inside `COPY … TO`. Each file ends with a stats `SELECT` that feeds the validation report.
-- **On-disk staging database.** Transforms stage into `data/work/<year>.duckdb`, not memory, so a full year can spill to disk. The file is deleted after a successful run.
-- **One row per test.** Exact duplicates are removed. For conflicting rows, one is kept deterministically: latest `completed_date`, then latest `first_use_date`, then `colour` A–Z. Validation reports how many were affected.
-- **Failure items drop exact duplicates only.** The same RfR at a different location is a real second defect.
-- **Normalised codes.** Fuel descriptions are mapped to codes via `fuel_types`. Unknown values are kept and reported, not dropped.
-- **`test_mileage` 0 → NULL.** The user guide says 0 or blank means no reading was taken.
-- **Malformed rows are counted, not fatal.** DuckDB's `store_rejects` keeps the run going, and validation fails it if more than 0.1% of rows are rejected.
-- **`test_year` is the release year.** Every row in a yearly release goes into that year's partition, and validation proves `year(test_date)` matches. This keeps re-runs idempotent (only that partition is replaced) and avoids a multi-hundred-million-row join to partition failure items.
-- **Sample mode reads one month.** `--sample N` extracts only the first month, keeps the N lowest `test_id`s (deterministic, and effectively random because ids carry no meaning) and only their failure items, so joins stay meaningful. Output goes to `sample/` so it can never overwrite a full run.
+Every non-obvious decision is recorded in **[docs/DECISIONS.md](docs/DECISIONS.md)**, with the alternatives considered and the reasons. The main ones:
+
+- **Download links are discovered, never hard-coded,** from the dataset's data.gov.uk metadata ([D-001](docs/DECISIONS.md#d-001-discover-download-urls-from-ckan-metadata)).
+- **Only post-May-2018 data is in scope,** because the defect categories changed then ([D-002](docs/DECISIONS.md#d-002-scope-post-may-2018-data-only)).
+- **Where the real files disagree with the user guide, the files win,** and each difference is documented ([D-003](docs/DECISIONS.md#d-003-the-user-guide-is-the-reference-but-the-real-files-win)).
+- **`tests` has exactly one row per `test_id`,** chosen by a fixed rule ([D-007](docs/DECISIONS.md#d-007-keep-exactly-one-row-per-test_id)). **Failure items lose exact duplicates only** ([D-008](docs/DECISIONS.md#d-008-failure-items-drop-exact-duplicates-only)).
+- **Malformed CSV rows are counted rather than fatal** ([D-009](docs/DECISIONS.md#d-009-count-malformed-csv-rows-dont-crash)).
+- **`test_year` is the release year,** so re-running a year replaces only that year's folder ([D-011](docs/DECISIONS.md#d-011-test_year-is-the-release-year)).
+- **Sample mode reads one month and keeps its joins complete** ([D-012](docs/DECISIONS.md#d-012-sample-mode-design)).
+- **Downloads resume safely,** and every input is recorded in a committed manifest ([D-013](docs/DECISIONS.md#d-013-resumable-downloads-keyed-on-etag), [D-014](docs/DECISIONS.md#d-014-commit-the-download-manifest)).
 
 ## Architecture
 
