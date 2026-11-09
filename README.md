@@ -1,8 +1,6 @@
 # mot-data-pipeline
 
-<!-- CI badge: replace OWNER once the repo is on GitHub
-[![CI](https://github.com/OWNER/mot-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/mot-data-pipeline/actions/workflows/ci.yml)
--->
+[![CI](https://github.com/jahadeesh/mot-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/jahadeesh/mot-data-pipeline/actions/workflows/ci.yml)
 
 This pipeline turns the DVSA **Anonymised MOT tests and results** dataset (tens of millions of GB vehicle tests a year) into clean, documented, partitioned **parquet**. It downloads the files, extracts them, transforms them with DuckDB and validates the output.
 
