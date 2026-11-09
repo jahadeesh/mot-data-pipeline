@@ -27,6 +27,38 @@ def test_download_year_writes_files_and_manifest(fake_server: FakeServer, tmp_pa
         assert manifest[key].url == URLS[kind]
 
 
+def test_manifest_records_source_file_name(fake_server: FakeServer, tmp_path: Path):
+    layout = Layout(tmp_path)
+    with fake_server.client() as client:
+        download_year(layout, 2024, client, log=lambda _: None)
+    manifest = load_manifest(layout.manifest)
+    assert manifest["2024/items.zip"].file_name == "MOT Testing data failure item (2024).zip"
+    assert manifest["lookups/lookup.zip"].file_name == "lookup.zip"
+
+
+def test_redownload_of_identical_bytes_keeps_manifest_stable(
+    fake_server: FakeServer, tmp_path: Path
+):
+    # Simulates a fresh clone: committed manifest present, data files absent.
+    layout = Layout(tmp_path / "data", manifest_path=tmp_path / "manifest" / "downloads.json")
+    with fake_server.client() as client:
+        download_year(layout, 2024, client, log=lambda _: None)
+        before = layout.manifest.read_text()
+        for kind in ("results", "items", "lookups"):
+            layout.raw_zip(kind, 2024).unlink()
+        download_year(layout, 2024, client, log=lambda _: None)
+    assert layout.manifest.read_text() == before
+
+
+def test_loads_manifest_written_before_file_name_existed(tmp_path: Path):
+    path = tmp_path / "m.json"
+    path.write_text(
+        '{"files": {"k": {"url": "https://x.test/a+b+(2024).zip", "size": 1,'
+        ' "sha256": "s", "etag": null, "downloaded_at": "t"}}}'
+    )
+    assert load_manifest(path)["k"].file_name == "a b (2024).zip"
+
+
 def test_second_run_skips_everything(fake_server: FakeServer, tmp_path: Path):
     layout = Layout(tmp_path)
     with fake_server.client() as client:

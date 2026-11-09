@@ -18,7 +18,7 @@ from rich.progress import (
 
 from mot_pipeline import config
 from mot_pipeline import download as download_mod
-from mot_pipeline.config import Layout, resolve_data_dir
+from mot_pipeline.config import Layout, resolve_data_dir, resolve_manifest
 from mot_pipeline.extract import extract_zip
 from mot_pipeline.transform import run_transform
 from mot_pipeline.validate import print_report, run_validation, save_report
@@ -56,10 +56,19 @@ DataDir = Annotated[
         show_default=False,
     ),
 ]
+Manifest = Annotated[
+    Path | None,
+    typer.Option(
+        "--manifest",
+        help=f"Download manifest (committed to git). Defaults to ${config.MANIFEST_ENV}, "
+        f"then ./{config.DEFAULT_MANIFEST.as_posix()}.",
+        show_default=False,
+    ),
+]
 
 
-def _layout(data_dir: Path | None) -> Layout:
-    return Layout(resolve_data_dir(data_dir))
+def _layout(data_dir: Path | None, manifest: Path | None = None) -> Layout:
+    return Layout(resolve_data_dir(data_dir), manifest_path=resolve_manifest(manifest))
 
 
 def _do_download(layout: Layout, year: int, verify: bool) -> None:
@@ -111,28 +120,35 @@ def _do_validate(layout: Layout, year: int, sample: int | None) -> bool:
 def download(
     year: Year = config.DEFAULT_YEAR,
     data_dir: DataDir = None,
+    manifest: Manifest = None,
     verify: Annotated[
         bool, typer.Option(help="Re-hash existing files against the manifest.")
     ] = False,
 ) -> None:
     """Download the results, failure-item and lookup ZIPs (resumable, skips up-to-date files)."""
-    _do_download(_layout(data_dir), year, verify)
+    _do_download(_layout(data_dir, manifest), year, verify)
 
 
 @app.command()
-def extract(year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None):
+def extract(
+    year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None
+) -> None:
     """Extract the CSVs from the downloaded ZIPs (sample mode: first month only)."""
     _do_extract(_layout(data_dir), year, sample)
 
 
 @app.command()
-def transform(year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None):
+def transform(
+    year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None
+) -> None:
     """Transform extracted CSVs to partitioned zstd parquet with DuckDB."""
     run_transform(_layout(data_dir), year, sample, log=console.print)
 
 
 @app.command()
-def validate(year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None):
+def validate(
+    year: Year = config.DEFAULT_YEAR, sample: Sample = None, data_dir: DataDir = None
+) -> None:
     """Validate the parquet output; exits with code 1 if any check fails."""
     if not _do_validate(_layout(data_dir), year, sample):
         raise typer.Exit(code=1)
@@ -143,12 +159,13 @@ def run(
     year: Year = config.DEFAULT_YEAR,
     sample: Sample = None,
     data_dir: DataDir = None,
+    manifest: Manifest = None,
     skip_download: Annotated[
         bool, typer.Option(help="Use the ZIPs already in raw/ without contacting the server.")
     ] = False,
 ) -> None:
     """Run download -> extract -> transform -> validate end to end."""
-    layout = _layout(data_dir)
+    layout = _layout(data_dir, manifest)
     console.rule(f"[bold]mot-pipeline {year}" + (f" (sample {sample:,})" if sample else ""))
     console.print(f"data dir: {layout.root.resolve()}")
     if not skip_download:

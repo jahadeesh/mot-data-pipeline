@@ -1,5 +1,6 @@
 """End-to-end CLI tests against the fake server (no network, synthetic fixtures only)."""
 
+import os
 from pathlib import Path
 
 import duckdb
@@ -20,7 +21,9 @@ def test_run_sample_end_to_end(fake_server: FakeServer, make_client_for, data_di
     tests = data_dir / "sample" / "parquet" / "tests" / "test_year=2024"
     assert duckdb.sql(f"SELECT count(*) FROM '{tests.as_posix()}/*.parquet'").fetchall() == [(5,)]
     assert read_json(data_dir / "reports" / "validation_2024_sample.json")["passed"] is True
-    assert (data_dir / "raw" / "manifest.json").exists()
+    manifest = read_json(Path(os.environ["MOT_MANIFEST"]))["files"]
+    assert manifest["2024/results.zip"]["file_name"] == "MOT testing data results (2024).zip"
+    assert not (data_dir / "raw" / "manifest.json").exists()  # manifest lives outside data/
 
 
 def test_rerun_skips_download(fake_server: FakeServer, make_client_for, data_dir: Path):
@@ -48,7 +51,7 @@ def test_validate_exits_non_zero_without_output(data_dir: Path):
     assert "FAILED" in result.output
 
 
-def test_rejects_pre_2019_years():
+def test_rejects_pre_2018_years():
     result = runner.invoke(app, ["run", "--year", "2017"])
     assert result.exit_code == 2
 

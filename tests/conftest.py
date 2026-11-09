@@ -34,6 +34,14 @@ def _block_real_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Never let a test touch the repo's committed manifest/downloads.json."""
+    path = tmp_path / "manifest" / "downloads.json"
+    monkeypatch.setenv("MOT_MANIFEST", str(path))
+    return path
+
+
 def build_data_zip(folder: str, members: dict[str, bytes]) -> bytes:
     """Mimic the real archives: a top folder, monthly CSVs, and macOS resource-fork junk."""
     buf = io.BytesIO()

@@ -16,10 +16,13 @@ CKAN_PACKAGE_SHOW = "https://data.gov.uk/api/action/package_show"
 
 DATA_DIR_ENV = "MOT_DATA_DIR"
 DEFAULT_DATA_DIR = Path("data")
+# The download manifest is committed to git (unlike data/), so it lives outside the data dir.
+MANIFEST_ENV = "MOT_MANIFEST"
+DEFAULT_MANIFEST = Path("manifest") / "downloads.json"
 DEFAULT_YEAR = 2024
 
-# Only the post-May-2018 file format is supported (see README, "Design decisions").
-MIN_SUPPORTED_YEAR = 2019
+# Only the post-May-2018 regime is in scope (docs/DECISIONS.md, D-002).
+MIN_SUPPORTED_YEAR = 2018
 
 # Lookup CSV file name inside lookup.zip -> output table name.
 LOOKUP_TABLES: dict[str, str] = {
@@ -68,11 +71,20 @@ def resolve_data_dir(override: Path | None = None) -> Path:
     return Path(env) if env else DEFAULT_DATA_DIR
 
 
+def resolve_manifest(override: Path | None = None) -> Path:
+    """`--manifest` wins, then $MOT_MANIFEST, then ./manifest/downloads.json."""
+    if override is not None:
+        return override
+    env = os.environ.get(MANIFEST_ENV)
+    return Path(env) if env else DEFAULT_MANIFEST
+
+
 @dataclass(frozen=True)
 class Layout:
     """Directory layout under the data root. Pure path arithmetic, no I/O."""
 
     root: Path
+    manifest_path: Path | None = None  # None: keep it next to the raw files (used by tests)
 
     @property
     def raw(self) -> Path:
@@ -80,7 +92,7 @@ class Layout:
 
     @property
     def manifest(self) -> Path:
-        return self.raw / "manifest.json"
+        return self.manifest_path or self.raw / "manifest.json"
 
     def raw_zip(self, kind: str, year: int | None = None) -> Path:
         if kind == "lookups":

@@ -1,0 +1,28 @@
+{
+  "files": {
+    "2024/items.zip": {
+      "file_name": "MOT Testing data failure item (2024).zip",
+      "url": "https://edh-dvsa-data-gov-uk-files-prod.s3.eu-west-1.amazonaws.com/MOT+Testing+data+failure+item+(2024).zip",
+      "size": 680168954,
+      "sha256": "765d3267be071737995ef5240cdea40278171b60a39056d42fffa084fce7c278",
+      "etag": "\"1c82385cd559dc81f4b65f4bece0fee7-40\"",
+      "downloaded_at": "2026-11-08T23:33:04+00:00"
+    },
+    "2024/results.zip": {
+      "file_name": "MOT testing data results (2024).zip",
+      "url": "https://edh-dvsa-data-gov-uk-files-prod.s3.eu-west-1.amazonaws.com/MOT+testing+data+results+(2024).zip",
+      "size": 1531265132,
+      "sha256": "1432996ede0e7fe89947ea5063ed13ef8b19a8f2e1268aaf261e9fec9bea1d6c",
+      "etag": "\"d5dc2f8a00cee5c8bc98136c561b6390-90\"",
+      "downloaded_at": "2026-11-08T23:40:00+00:00"
+    },
+    "lookups/lookup.zip": {
+      "file_name": "lookup.zip",
+      "url": "https://edh-dvsa-data-gov-uk-files-prod.s3.eu-west-1.amazonaws.com/lookup.zip",
+      "size": 254053,
+      "sha256": "c979049e50880f3358356e6e15fc4937cf33b147da92899ed6067b9ec313b1cb",
+      "etag": "\"e055a920731b90ed91e44fd6174787d9\"",
+      "downloaded_at": "2026-11-08T23:30:00+00:00"
+    }
+  }
+}

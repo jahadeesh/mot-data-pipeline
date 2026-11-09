@@ -2,7 +2,10 @@
 
 - A file whose size and ETag match the manifest and the server is skipped without re-hashing.
 - Partial downloads live in `<name>.part` and resume with an HTTP Range request.
-- `manifest.json` (under raw/) records url, size, sha256, etag and time for every file.
+- The manifest (`manifest/downloads.json`, committed to git) records the source file name, url,
+  size, sha256, etag and download date of every file, so anyone can verify they processed
+  byte-identical inputs. An entry whose content is unchanged keeps its original date, so
+  re-downloading on another machine doesn't churn the committed file.
 """
 
 from __future__ import annotations
@@ -10,9 +13,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from urllib.parse import unquote_plus, urlparse
 
 import httpx
 
@@ -25,11 +29,21 @@ ProgressFn = Callable[[str, int, int | None], None]  # (label, bytes_advanced, t
 
 @dataclass
 class ManifestEntry:
+    file_name: str  # name of the file at the source, e.g. "MOT testing data results (2024).zip"
     url: str
     size: int
     sha256: str
     etag: str | None
     downloaded_at: str
+
+
+def source_file_name(url: str) -> str:
+    """S3 URLs encode spaces as '+', so decode with unquote_plus."""
+    return unquote_plus(PurePosixPath(urlparse(url).path).name)
+
+
+def _new_entry(url: str, size: int, sha256: str, etag: str | None) -> ManifestEntry:
+    return ManifestEntry(source_file_name(url), url, size, sha256, etag, _now())
 
 
 def make_client() -> httpx.Client:
@@ -45,7 +59,11 @@ def load_manifest(path: Path) -> dict[str, ManifestEntry]:
     if not path.exists():
         return {}
     raw = json.loads(path.read_text(encoding="utf-8"))
-    return {key: ManifestEntry(**value) for key, value in raw.get("files", {}).items()}
+    entries = {}
+    for key, value in raw.get("files", {}).items():
+        value.setdefault("file_name", source_file_name(value["url"]))  # pre-file_name manifests
+        entries[key] = ManifestEntry(**value)
+    return entries
 
 
 def save_manifest(path: Path, entries: dict[str, ManifestEntry]) -> None:
@@ -96,8 +114,7 @@ def download_file(
 
     if dest.exists() and not known and size is not None and dest.stat().st_size == size:
         # File present but manifest lost: adopt it after hashing instead of re-downloading.
-        entry = ManifestEntry(url, size, sha256_file(dest), etag, _now())
-        return entry, False
+        return _new_entry(url, size, sha256_file(dest), etag), False
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
@@ -135,8 +152,7 @@ def download_file(
         raise RuntimeError(f"Incomplete download of {url}: {actual} of {size} bytes. Re-run.")
     part.replace(dest)
     part_etag_file.unlink(missing_ok=True)
-    entry = ManifestEntry(url, actual, sha256_file(dest), etag, _now())
-    return entry, True
+    return _new_entry(url, actual, sha256_file(dest), etag), True
 
 
 def download_year(
@@ -159,6 +175,11 @@ def download_year(
         entry, downloaded = download_file(
             client, resource.url, dest, manifest=manifest, key=key, verify=verify, progress=progress
         )
+        known = manifest.get(key)
+        if known and known.sha256 == entry.sha256 and known.url == entry.url:
+            # Same bytes as recorded: keep the original entry (and date) so the committed
+            # manifest only changes when the source data actually changes.
+            entry = replace(entry, downloaded_at=known.downloaded_at)
         manifest[key] = entry
         save_manifest(layout.manifest, manifest)  # after every file, so progress survives a crash
         status = "downloaded" if downloaded else "skipped (up to date)"
